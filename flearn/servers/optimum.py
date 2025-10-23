@@ -58,7 +58,7 @@ class Optim:
 
         # TO CHANGE
         self.batch_size = 500
-        self.epochs = 800
+        self.epochs = 50  # Reduced for faster training
 
         self.train_loader = DataLoader(dataset=self.train_dataset, batch_size=self.batch_size, shuffle=True)
         self.train_loader_full = DataLoader(dataset=self.train_dataset, batch_size=self.batch_size)
@@ -78,11 +78,22 @@ class Optim:
                 if self.use_cuda:
                     images, labels = images.cuda(), labels.cuda()
 
-                self.optimizer.zero_grad()
-                outputs = self.model(images)
-                loss = self.loss(outputs, labels)
-                loss.backward()
-                self.optimizer.step()
+                # LBFGS requires a closure function
+                if isinstance(self.optimizer, LBFGS):
+                    def closure():
+                        self.optimizer.zero_grad()
+                        outputs = self.model(images)
+                        loss = self.loss(outputs, labels)
+                        loss.backward()
+                        return loss
+                    
+                    loss = self.optimizer.step(closure)
+                else:
+                    self.optimizer.zero_grad()
+                    outputs = self.model(images)
+                    loss = self.loss(outputs, labels)
+                    loss.backward()
+                    self.optimizer.step()
 
                 if i % self.log_interval == 0:
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
